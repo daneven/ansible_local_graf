@@ -1,0 +1,16 @@
+---
+- name: intsall nicita
+  hosts: nicita6
+  become: yes
+  #become_user: bscell
+  become_method: sudo
+  tasks:
+  - name: ping destination
+    ping:
+     # Virtualbox setup
+
+
+  - name: "Adding user bscell  to the group vboxusers"
+    user: name=bscell
+          groups=vboxusers
+          append=yes
