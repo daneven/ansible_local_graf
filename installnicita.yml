@@ -3,7 +3,19 @@
   hosts: nicita6
   user: bscell
   become: yes
-  #become_user: bscell
+
+  vars:
+   VM_image_MITM     : MITM_Core_CB3-P17a.ova
+   VM_image_Ubuntu_IP: Ubuntu_IP_New.ova
+   VM_image_win      : win_7_64_last.ova
+   VM_name_MITM      : MITM_Core_CB3
+   VM_name_Ubuntu_IP : buntu_IP
+   VM_name_win_7_64  : win_7_64
+
+  #update script below with variables from above
+
+
+   bscell
   tasks:
   - name: ping destination
     ping:
@@ -346,7 +358,7 @@
     become_method: su
     become_user: bscell
 
-  - name: modifyvm "MUbuntu_IP"
+  - name: modifyvm "Ubuntu_IP"
     shell: VBoxManage modifyvm "Ubuntu_IP" --autostart-enabled on
     become: true
     become_method: su
