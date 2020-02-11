@@ -2,9 +2,8 @@
 - name: intsall nicita
   hosts: nicita6
   user: bscell
-    
+  become: yes
   #become_user: bscell
-  become_method: sudo
   tasks:
   - name: ping destination
     ping:
