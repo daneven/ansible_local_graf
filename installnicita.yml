@@ -1,7 +1,8 @@
 ---
 - name: intsall nicita
   hosts: nicita6
-  become: yes
+  user: bscell
+    
   #become_user: bscell
   become_method: sudo
   tasks:
@@ -87,7 +88,7 @@
      dest: home/bscell/mongochef-4.4.2-linux-x64-dist/jre/bin/
      owner: bscell
      group: bscell
-     mode: 777
+     mode: '777'
      recurse: yes
   - name: Add an apt key by id from a keyserver
     apt_key:
@@ -166,11 +167,21 @@
       ##########################################need to do manualy #
       #    • Run “mkvirtualenv --python=/usr/bin/python3.5 bscell”
     #Run “workon bscell” (if it is not already ):
-#pip install pycurl
-#pip install paramiko
-#pip install gps
 
-#deactivate   to exit workon
+  - name: create virtualenv
+    shell: export WORKON_HOME=$HOME/.virtualenvs ; source /usr/local/bin/virtualenvwrapper.sh ; mkvirtualenv --python=/usr/bin/python3.5 bscell
+    become: true
+    become_method: su
+    become_user: bscell
+    args:
+     executable: /bin/bash
+  - name: install packages to virtenv
+    pip:
+     name:
+       - pycurl
+       - paramiko
+       - gps
+     virtualenv: /home/bscell/.virtualenvs/bscell
 #############################################################3
   - name: Update all packages to the latest version
     apt:
@@ -183,6 +194,11 @@
       src: /home/bscell/Downloads/Tactical-Box/70-persistent-net.rules
       dest: /etc/udev/rules.d
       remote_src: yes
+      ##################################vm installation##############
+  - name: Unconditionally reboot the machine with all defaults
+    reboot:
+
+
   - name: Install build-esential and dkms (prepare)
     apt:
       name:
@@ -191,6 +207,11 @@
       - unzip
       state: present
       update_cache: yes
+      become: true
+      become_method: su
+      become_user: bscell
+
+
 
   - name: Add VirtualBox repo keys
     apt_key:
@@ -218,10 +239,138 @@
 
 
 
-  - name: Output downloaded VirtualBox extension pack file name
-    debug:
-      var: download_result.dest
-      verbosity: 1
 
   - name: Install VirtualBox extension pack
-    shell: "echo 'y' | VBoxManage extpack install /tmp/Oracle_VM_VirtualBox_Extension_Pack-5.1.38.vbox-extpack"  
+    shell: "echo 'y' | VBoxManage extpack install /tmp/Oracle_VM_VirtualBox_Extension_Pack-5.1.38.vbox-extpack"
+    become: true
+    become_method: su
+    become_user: bscell
+
+  - name: "Adding user bscell  to the group vboxusers"
+    user: name=bscell
+          groups=vboxusers
+          append=yes
+
+  - name: Copy VMs
+    copy:
+      src: /home/bscell/Downloads/Tactical-Box/Vbox
+      dest: /home/bscell/
+      remote_src: yes
+
+  - name: change permission
+    shell: chmod -R 777 Vbox
+    become: true
+
+  - name: Install MITM_Core VM
+    shell: vboxmanage import /home/bscell/Vbox/MITM_Core_CB3-P17a.ova
+    become: true
+    become_method: su
+    become_user: bscell
+  - name: Install Ubuntu IP VM
+    shell: vboxmanage import /home/bscell/Vbox/Ubuntu_IP_New.ova
+    become: true
+    become_method: su
+    become_user: bscell
+
+  - name: Install win_7_64 VM
+    shell: vboxmanage import /home/bscell/Vbox/win_7_64_last.ova
+    become: true
+    become_method: su
+    become_user: bscell
+
+  - name: Copy vbox config files
+    copy:
+      src: /home/bscell/Downloads/Tactical-Box/Vbox/virtualbox
+      dest: /etc/default/
+      remote_src: yes
+
+
+  - name:  create directory /etc/vbox/
+    file:
+      path: /etc/vbox
+      state: directory
+      mode: '0775'
+      recurse: yes
+      become: true
+      become_method: su
+      become_user: bscell
+
+  - name: Copy vbox config files 2
+    copy:
+      src: /home/bscell/Downloads/Tactical-Box/Vbox/vbox.cfg
+      dest: /etc/vbox/
+      remote_src: yes
+      mode: '0777'
+      become: true
+      become_method: su
+      become_user: bscell
+
+  - name: Touch a file, bscell.start
+    file:
+      path: /etc/vbox/bscell.start
+      state: touch
+      mode: '0777'
+      become: true
+      become_method: su
+      become_user: bscell
+
+  - name: Touch a file, bscell.stop
+    file:
+      path: /etc/vbox/bscell.stop
+      state: touch
+      mode: '0777'
+      become: true
+      become_method: su
+      become_user: bscell
+
+  - name: Recursively change ownership of a directory
+    file:
+      path: /etc/vbox
+      state: directory
+      recurse: yes
+      group: vboxusers
+      mode: '1775'
+
+  - name: modify user group
+    shell: usermod -a -G vboxusers bscell
+    become: true
+
+  - name: setproperty autostartdbpath
+    shell: VBoxManage setproperty autostartdbpath /etc/vbox
+    become: true
+    become_method: su
+    become_user: bscell
+
+  - name: modifyvm "MITM_Core_CB3"
+    shell: VBoxManage modifyvm "MITM_Core_CB3" --autostart-enabled on
+    become: true
+    become_method: su
+    become_user: bscell
+
+  - name: modifyvm "MUbuntu_IP"
+    shell: VBoxManage modifyvm "Ubuntu_IP" --autostart-enabled on
+    become: true
+    become_method: su
+    become_user: bscell
+
+  - name: modifyvm "win_7_64"
+    shell: VBoxManage modifyvm "win_7_64" --autostart-enabled on
+    become: true
+    become_method: su
+    become_user: bscell
+
+  - name: define Host only net
+    shell: VBoxManage hostonlyif create ; VBoxManage hostonlyif ipconfig vboxnet0 --ip 192.168.2.1 --netmask 255.255.255.0
+    become: true
+    become_method: su
+    become_user: bscell
+
+
+  - name: Insert a line to  hosts.
+    lineinfile:
+        path: /etc/hosts
+        line:
+           "192.168.0.5	raemis \n127.0.0.1	nicita "
+           #******************Reboot machine******************************
+  - name: Unconditionally reboot the machine with all defaults
+    reboot:
