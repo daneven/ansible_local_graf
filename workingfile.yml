@@ -4,18 +4,16 @@
   user: bscell
   vars:
      ansible_ssh_private_key_file: /home/graf/.ssh/dankey
+     TacticalBoxPack   : Tactical-Box.tar.gz
+     VM_image_MITM     : MITM_Core_CB3-P17a.ova
+     VM_image_Ubuntu_IP: Ubuntu_IP_New.ova
+     VM_image_win      : win_7_64_last.ova
+     VM_name_MITM      : MITM_Core_CB3
+     VM_name_Ubuntu_IP : buntu_IP
+     VM_name_win_7_64  : win_7_64
   #become_user: bscell
   #become_method: sudo
   tasks:
-   - name: whoami
-     shell: whoami ; pwd
-     register: sudoout
-   - debug:
-      var : sudoout.stdout
-  
-   - name: whoami become
-     become: true
-     shell: whoami ; pwd
-     register: sudoout
-   - debug:
-      var : sudoout.stdout
+  - name: Unconditionally reboot the machine with all defaults
+    become: true
+    reboot:

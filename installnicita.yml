@@ -5,6 +5,7 @@
   become: yes
 
   vars:
+   TacticalBoxPack   : Tactical-Box.tar.gz
    VM_image_MITM     : MITM_Core_CB3-P17a.ova
    VM_image_Ubuntu_IP: Ubuntu_IP_New.ova
    VM_image_win      : win_7_64_last.ova
@@ -14,14 +15,13 @@
 
   #update script below with variables from above
 
-
-   bscell
   tasks:
   - name: ping destination
     ping:
   - name: Change TZ to UTC
     timezone:
      name: UTC
+
   - name: install packs
     yum:
       state: present
@@ -44,50 +44,65 @@
          - sshpass
          - curl
          - sqlite3
+
   - name: Update and upgrade apt packages
     become: true
     apt:
-     upgrade: yes
+     upgrade: 'yes'
      update_cache: yes
+
   - name: Remove useless packages from the cache
     become: true
     apt:
      autoclean: yes
+
   - name: Remove dependencies that are no longer required
     become: true
     apt:
      autoremove: yes
-  - name: Extract Tactical-Box.tar.gz into /home/bscell/Downloads/
+
+  - name: Extract TacticalBoxPack into /home/bscell/Downloads/
     unarchive:
-     src: /home/bscell/Downloads/Tactical-Box.tar.gz
+     src: /home/bscell/Downloads/{{TacticalBoxPack}}
      dest: /home/bscell/Downloads/
      remote_src: yes
+
   - name: update install files to unix format
+    become: true
     shell: find . -type f -print0 |xargs -0 dos2unix
     args:
        chdir: /home/bscell/Downloads/Tactical-Box
+
+
   - name: Copy a "dhcp config files"
+    become: true
     copy:
       src: /home/bscell/Downloads/Tactical-Box/ConfigFiles/core/dhcpd.conf
       dest: /etc/dhcp/
       remote_src: yes
+
   - name: Copy a "dhcp config files 2"
+    become: true
     copy:
       src: /home/bscell/Downloads/Tactical-Box/ConfigFiles/core/isc-dhcp-server
       dest: /etc/default
       remote_src: yes
+
   - name: Enable service isc-dhcp-server
+    become: true
     service:
       name: isc-dhcp-server
       enabled: yes
 #####################mongoDB###############################
   - name: Copy mongochef
+    become: true
     copy:
       src: /home/bscell/Downloads/Tactical-Box/mongochef-4.4.2-linux-x64-dist
       dest: /home/bscell
       owner: bscell
       group: bscell
       remote_src: yes
+
   - name: Create a symbolic link
     file:
       src: /home/bscell/mongochef-4.4.2-linux-x64-dist/bin/mongochef.sh
@@ -95,16 +110,20 @@
       owner: bscell
       group: bscell
       state: link
+
   - file:
      dest: home/bscell/mongochef-4.4.2-linux-x64-dist/jre/bin/
      owner: bscell
      group: bscell
      mode: '777'
      recurse: yes
+
   - name: Add an apt key by id from a keyserver
+    become: true
     apt_key:
      keyserver: keyserver.ubuntu.com
      id: EA312927
+
   - name: update mongo rep
     shell: echo "deb http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.2.list
   - name: Install mongodb packages
@@ -118,12 +137,17 @@
       - mongodb-org-mongos=3.2.9
       - mongodb-org-tools=3.2.9
       allow_unauthenticated: true
+
   - name: Enable mongod service
+    become: true
     service:
       name: mongod.service
       enabled: yes
+
   - name: update mongo
+    become: true
     shell: echo "mongodb-org hold" | sudo dpkg --set-selections && echo "mongodb-org-server hold" | sudo dpkg --set-selections && echo "mongodb-org-shell hold" | sudo dpkg --set-selections && echo "mongodb-org-mongos hold" | sudo dpkg --set-selections && echo "mongodb-org-tools hold" | sudo dpkg --set-selections
+
   - name: Update mongodb.conf with bind 0.0.0.0
     replace:
       path: /etc/mongod.conf
@@ -132,6 +156,7 @@
       backup: no
       ##########################PIP/PIP3############################
     - name: install PIP packages, force upgrade
+      become: true
       pip:
         name:
           - pip
@@ -143,6 +168,7 @@
 
       ###########################need to check if was installed#############
   - name: install PIP3 package, force upgrade
+    become: true
     pip:
       name:
         - pip
@@ -164,11 +190,21 @@
       - python-dev
       allow_unauthenticated: true
 
+################
+  - name: Test bashrc
+    shell:  cat /home/bscell/.bashrc | grep WORKON_HOME | wc -l
+    register: test_bashrc
+
+  - debug:
+     var: test_bashrc
   - name: Insert a lines to  .bashrc .
     lineinfile:
-        path: /home/bscell/.bashrc
+        dest: /home/bscell/.bashrc
         line:
-           "export WORKON_HOME=$HOME/.virtualenvs \nsource /usr/local/bin/virtualenvwrapper.sh "
+           "export WORKON_HOME=$HOME/.virtualenvs \nsource /usr/local/bin/virtualenvwrapper.sh"
+    when: test_bashrc.stdout =="0"
+
+
   - name: restart bashrc
     shell: source  /home/bscell/.bashrc
     args:
@@ -186,6 +222,7 @@
     become_user: bscell
     args:
      executable: /bin/bash
+
   - name: install packages to virtenv
     pip:
      name:
@@ -205,12 +242,15 @@
       src: /home/bscell/Downloads/Tactical-Box/70-persistent-net.rules
       dest: /etc/udev/rules.d
       remote_src: yes
-      ##################################vm installation##############
+      ##################################REBOOT##############
   - name: Unconditionally reboot the machine with all defaults
     reboot:
+     ##################################REBOOT##############
 
+     ##################################install VMs##############
 
   - name: Install build-esential and dkms (prepare)
+    become: yes
     apt:
       name:
       - build-essential
@@ -218,13 +258,11 @@
       - unzip
       state: present
       update_cache: yes
-      become: true
-      become_method: su
-      become_user: bscell
 
 
 
   - name: Add VirtualBox repo keys
+    become: yes
     apt_key:
       url: "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
       state: present
@@ -233,31 +271,33 @@
       - oracle_vbox_2016
 
   - name: Add VirtualBox repo
+    become: yes
     apt_repository:
       repo: 'deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian xenial contrib'
       state: present
       update_cache: yes
 
   - name: "Install virtualbox "
+    become: true
     apt:
       name: virtualbox
-      state: present
+      state: latest
 
   - name: Download VirtualBox extension pack
     get_url:
       url: "https://download.virtualbox.org/virtualbox/5.1.38/Oracle_VM_VirtualBox_Extension_Pack-5.1.38.vbox-extpack"
       dest: /tmp/
 
-
-
-
   - name: Install VirtualBox extension pack
     shell: "echo 'y' | VBoxManage extpack install /tmp/Oracle_VM_VirtualBox_Extension_Pack-5.1.38.vbox-extpack"
     become: true
-    become_method: su
-    become_user: bscell
+
+
+
+
 
   - name: "Adding user bscell  to the group vboxusers"
+    become: yes
     user: name=bscell
           groups=vboxusers
           append=yes
@@ -267,74 +307,80 @@
       src: /home/bscell/Downloads/Tactical-Box/Vbox
       dest: /home/bscell/
       remote_src: yes
-
-  - name: change permission
-    shell: chmod -R 777 Vbox
-    become: true
+      owner: bscell
+      group: bscell
+      mode: '0777'
 
   - name: Install MITM_Core VM
-    shell: vboxmanage import /home/bscell/Vbox/MITM_Core_CB3-P17a.ova
+    shell: vboxmanage import /home/bscell/Vbox/{{VM_image_MITM}}
     become: true
     become_method: su
     become_user: bscell
+
   - name: Install Ubuntu IP VM
-    shell: vboxmanage import /home/bscell/Vbox/Ubuntu_IP_New.ova
+    shell: vboxmanage import /home/bscell/Vbox/{{VM_image_Ubuntu_IP}}
     become: true
     become_method: su
     become_user: bscell
 
   - name: Install win_7_64 VM
-    shell: vboxmanage import /home/bscell/Vbox/win_7_64_last.ova
+    shell: vboxmanage import /home/bscell/Vbox/{{VM_image_win}}
     become: true
     become_method: su
     become_user: bscell
 
+  - name: run dos2unix
+    shell: cd /home/bscell/Downloads/Tactical-Box/Vbox ; find . -type f -print0 |xargs -0 dos2unix
+    become: true
+
+
   - name: Copy vbox config files
+    become: true
     copy:
-      src: /home/bscell/Downloads/Tactical-Box/Vbox/virtualbox
-      dest: /etc/default/
-      remote_src: yes
+     src: /home/bscell/Downloads/Tactical-Box/Vbox/virtualbox
+     dest: /etc/default/
+     remote_src: yes
+     mode: '0777'
 
 
   - name:  create directory /etc/vbox/
+    become: true
     file:
       path: /etc/vbox
       state: directory
       mode: '0775'
       recurse: yes
-      become: true
-      become_method: su
-      become_user: bscell
+
+
 
   - name: Copy vbox config files 2
+    become: true
     copy:
       src: /home/bscell/Downloads/Tactical-Box/Vbox/vbox.cfg
       dest: /etc/vbox/
       remote_src: yes
       mode: '0777'
-      become: true
-      become_method: su
-      become_user: bscell
-
-  - name: Touch a file, bscell.start
-    file:
-      path: /etc/vbox/bscell.start
-      state: touch
-      mode: '0777'
-      become: true
-      become_method: su
-      become_user: bscell
 
   - name: Touch a file, bscell.stop
+    become: true
     file:
       path: /etc/vbox/bscell.stop
       state: touch
+      owner: bscell
+      group: vboxusers
       mode: '0777'
-      become: true
-      become_method: su
-      become_user: bscell
+
+  - name: Touch a file, bscell.start
+    become: true
+    file:
+      path: /etc/vbox/bscell.start
+      state: touch
+      owner: bscell
+      group: vboxusers
+      mode: '0777'
 
   - name: Recursively change ownership of a directory
+    become: true
     file:
       path: /etc/vbox
       state: directory
@@ -348,33 +394,24 @@
 
   - name: setproperty autostartdbpath
     shell: VBoxManage setproperty autostartdbpath /etc/vbox
-    become: true
-    become_method: su
-    become_user: bscell
+
+
 
   - name: modifyvm "MITM_Core_CB3"
     shell: VBoxManage modifyvm "MITM_Core_CB3" --autostart-enabled on
-    become: true
-    become_method: su
-    become_user: bscell
+
 
   - name: modifyvm "Ubuntu_IP"
     shell: VBoxManage modifyvm "Ubuntu_IP" --autostart-enabled on
-    become: true
-    become_method: su
-    become_user: bscell
+
 
   - name: modifyvm "win_7_64"
     shell: VBoxManage modifyvm "win_7_64" --autostart-enabled on
-    become: true
-    become_method: su
-    become_user: bscell
+
 
   - name: define Host only net
     shell: VBoxManage hostonlyif create ; VBoxManage hostonlyif ipconfig vboxnet0 --ip 192.168.2.1 --netmask 255.255.255.0
-    become: true
-    become_method: su
-    become_user: bscell
+
 
 
   - name: Insert a line to  hosts.
@@ -384,4 +421,5 @@
            "192.168.0.5	raemis \n127.0.0.1	nicita "
            #******************Reboot machine******************************
   - name: Unconditionally reboot the machine with all defaults
+    become: true
     reboot:
