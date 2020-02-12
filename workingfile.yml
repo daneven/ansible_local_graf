@@ -14,5 +14,5 @@
   #become_user: bscell
   #become_method: sudo
   tasks:
-    - name: create virtualenv
-      shell: ssh root@raemis "chmod 700 .ssh; chmod 640 .ssh/authorized_keys"
+   - name: key
+     shell: ssh root@raemis "chmod 700 .ssh; chmod 640 .ssh/authorized_keys"
