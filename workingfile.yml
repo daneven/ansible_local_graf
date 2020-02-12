@@ -5,7 +5,17 @@
   vars:
      ansible_ssh_private_key_file: /home/graf/.ssh/dankey
   #become_user: bscell
-  become_method: sudo
+  #become_method: sudo
   tasks:
-  - name: ping destination
-    ping:
+   - name: whoami
+     shell: whoami ; pwd
+     register: sudoout
+   - debug:
+      var : sudoout.stdout
+  
+   - name: whoami become
+     become: true
+     shell: whoami ; pwd
+     register: sudoout
+   - debug:
+      var : sudoout.stdout
